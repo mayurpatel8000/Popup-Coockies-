@@ -1,0 +1,241 @@
+<style>
+/* The Modal (background) */
+.custommodal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.4); /* Black with opacity */
+}
+
+/* Modal Content */
+.custommodal .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 40%;
+    color:#000;
+}
+.custommodal .modal-content label {
+    color: #000;
+    font-size: 14px;
+}
+
+/* Close Button */
+.custommodal .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.custommodal .close:hover,
+.custommodal .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+</style>
+
+<div id="customModal" class="modal custommodal" style="display:none;">
+    <div class="modal-content">
+        <span id="closeModal" class="close">&times;</span>
+        <h2 class="modaltext">Welcome to Our Website!</h2>
+        <p class="modaldesc">This is a custom modal popup that will be shown only once.</p>
+        <div>
+            <input type="checkbox" id="doNotShowAgain"> 
+            <label class="custommodalmsg" for="doNotShowAgain">Do not show again</label>
+        </div>
+        <div>
+            <input type="checkbox" id="afterMinute"> 
+            <label class="custommodalmsg" for="afterMinute">Show again after 1 min</label>
+        </div>
+    </div>
+</div>
+
+<div id="timerBox" style="display:none; position:fixed; top:0; width:100%; background-color:yellow; text-align:center; padding:10px;font-size: 12px;color: #000;line-height: 1.5;left:0;right:0;">
+    <span>Popup will show again in <span id="timer" style="color:red;font-size:26px;line-height:1.5;">60</span> seconds.</span> 
+    <button id="thirtySecButton" style="display:none;background-color:red;border-color:red;">30 sec remaining</button> <!-- New Button -->
+</div>
+<script>
+    require(['jquery'], function ($) {
+        $(document).ready(function () {
+            var modal = $('#customModal');
+            var doNotShowAgainCheckbox = $('#doNotShowAgain');
+            var closeModal = $('#closeModal');
+            var afterMinute = $('#afterMinute');
+            var timerBox = $('#timerBox');
+            var timerElement = $('#timer');
+            var countdownInterval;
+            var thirtySecButton = $('#thirtySecButton'); // Button for 30 sec remaining
+            var countdownDuration = 60; // 60 seconds countdown
+
+            // Function to set a cookie
+            function setCookie(name, value, days) {
+                var expires = "";
+                if (days) {
+                    var date = new Date();
+                    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                    expires = "; expires=" + date.toUTCString();
+                }
+                document.cookie = name + "=" + (value || "") + expires + "; path=/";
+            }
+
+            // Function to get a cookie by name
+            function getCookie(name) {
+                var nameEQ = name + "=";
+                var ca = document.cookie.split(';');
+                for (var i = 0; i < ca.length; i++) {
+                    var c = ca[i];
+                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+                }
+                return null;
+            }
+            // Function to erase a cookie
+            function eraseCookie(name) {
+                document.cookie = name + '=; Max-Age=-99999999;';
+            }
+            function startCountdown(remainingTime) {
+                timerElement.text(remainingTime); // Set initial time
+                timerBox.show(); // Show the timer box
+
+                countdownInterval = setInterval(function () {
+                    remainingTime--;
+                    timerElement.text(remainingTime);
+
+                    // Show button when 30 seconds remain
+                    if (remainingTime <= 30) {
+                        thirtySecButton.show();                        
+                        thirtySecButton.text(remainingTime + " sec remaining"); // Update button text with countdown
+                    }
+
+                    if (remainingTime <= 0) {
+                        clearInterval(countdownInterval); // Stop the countdown
+                        timerBox.hide(); // Hide the timer box when time's up
+                        modal.show(); // Show the modal after countdown
+                        eraseCookie('customModalDelay'); // Remove delay cookie
+                        thirtySecButton.hide(); // Hide button when countdown finishes
+                    }
+                }, 1000); // Update every second
+            }
+
+            // Function to calculate remaining time based on the timestamp
+            function calculateRemainingTime() {
+                var savedTimestamp = getCookie('customModalTimestamp');
+                if (savedTimestamp) {
+                    var currentTime = Math.floor(Date.now() / 1000); // Get current time in seconds
+                    var elapsedTime = currentTime - savedTimestamp; // Calculate elapsed time
+                    var remainingTime = countdownDuration - elapsedTime; // Calculate remaining time
+
+                    if (remainingTime > 0) {
+                        startCountdown(remainingTime); // Continue countdown if time is left
+                    } else {
+                        modal.show(); // Show modal immediately if time has elapsed
+                        eraseCookie('customModalDelay'); // Remove delay cookie
+                    }
+                } else {
+                    modal.show(); // Show modal immediately if no timestamp found
+                }
+            }
+
+            // Check if the modal should be delayed first
+            if (getCookie('customModalDelay') === 'true') {
+                calculateRemainingTime(); // Calculate remaining time and continue countdown
+            } else {
+                // If delay is not set, check if the modal has been dismissed
+                if (getCookie('customModalDismissed') !== 'true') {
+                    modal.show(); // Show the modal immediately if it hasn't been dismissed
+                }
+            }
+
+            // Function to handle modal close behavior when checkboxes are checked
+            function handleCheckboxChange() {  
+                // Check if both checkboxes are checked
+                if (doNotShowAgainCheckbox.is(':checked') && afterMinute.is(':checked')) {
+                    // If both are checked, ignore the "Show again after 1 min" checkbox and only apply "Do not show again"
+                    setCookie('customModalDismissed', true, 365); // Set for 1 year
+                    eraseCookie('customModalDelay'); // Remove any delay cookie if previously set
+                    clearInterval(countdownInterval); // Clear any countdown if active
+                    timerBox.hide(); // Hide the timer box
+                    thirtySecButton.hide();
+                    // modal.hide();
+                    return;
+                }
+
+                // If "Show again after 1 min" is checked, save to cookies and show the timer AFTER popup closes
+                if (afterMinute.is(':checked') && !doNotShowAgainCheckbox.is(':checked')) {
+                    var currentTimestamp = Math.floor(Date.now() / 1000); // Get current time in seconds
+                    setCookie('customModalDelay', true, 1); // Set for 1 day
+                    setCookie('customModalTimestamp', currentTimestamp, 1); // Save the timestamp
+                    $('#customModal').on('modalclosed', function() { 
+                        startCountdown(countdownDuration); // Start countdown from 60 seconds after modal is hidden                    
+                    });
+                }
+
+                // If "Do not show again" is checked, save to cookies
+                if (doNotShowAgainCheckbox.is(':checked')) {
+                    setCookie('customModalDismissed', true, 365); // Set for 1 year
+                    clearInterval(countdownInterval); // Clear the countdown if active
+                    timerBox.hide(); // Hide the timer box if active
+                    thirtySecButton.hide();
+                    // modal.hide();
+                }
+
+            }
+
+            // Close the modal when the close button is clicked
+            closeModal.on('click', function () {  
+                if (afterMinute.is(':checked')) {
+                    var currentTimestamp = Math.floor(Date.now() / 1000); // Get current time in seconds
+                    setCookie('customModalDelay', true, 1); // Set for 1 day
+                    setCookie('customModalTimestamp', currentTimestamp, 1); // Save the timestamp
+                    console.log('closed btn')
+                    // Close modal first, then start countdown after 500ms
+                    modal.hide(); // Hide the modal first
+                    startCountdown(countdownDuration);                    
+                    timerBox.show(); // Hide the timer box if active
+                    // thirtySecButton.show();
+                }
+                if (doNotShowAgainCheckbox.is(':checked')) {
+                    setCookie('customModalDismissed', true, 365); // Set for 1 year
+                    clearInterval(countdownInterval); // Clear the countdown if active
+                    timerBox.hide(); // Hide the timer box if active
+                    thirtySecButton.hide();
+                    modal.hide();
+                }
+                if (doNotShowAgainCheckbox.is(':checked') && afterMinute.is(':checked')) {
+                    // If both are checked, ignore the "Show again after 1 min" checkbox and only apply "Do not show again"
+                    setCookie('customModalDismissed', true, 365); // Set for 1 year
+                    eraseCookie('customModalDelay'); // Remove any delay cookie if previously set
+                    clearInterval(countdownInterval); // Clear any countdown if active
+                    timerBox.hide(); // Hide the timer box
+                    thirtySecButton.hide();
+                    // modal.hide();
+                    return;
+                }
+                modal.hide();               
+
+            });
+
+            // Attach event listener to checkboxes to hide modal on selection
+            doNotShowAgainCheckbox.on('change', function () {
+                handleCheckboxChange(); // Call handleCheckboxChange on checkbox change
+            });
+            afterMinute.on('change', function () {
+                handleCheckboxChange(); // Call handleCheckboxChange on checkbox change
+            });
+
+            // Close the modal if the user clicks outside the modal content
+            $(window).on('click', function (event) {
+                if ($(event.target).is(modal)) {
+                    // modal.hide();
+                }
+            });
+        });
+    });
+</script>
